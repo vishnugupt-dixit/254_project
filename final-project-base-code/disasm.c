@@ -19,6 +19,14 @@ void write_branch(Instruction);
 
 
 void decode_instruction(uint32_t instruction_bits) {
+    // silently return here, the reason to do this is because the pipeline
+    // will be uninitialised for the first 4 cycles and so the call to
+    // `parse_instruction` will fail.
+    if(instruction_bits == 0)
+    {
+        printf("\n");
+        return;
+    }
     Instruction instruction = parse_instruction(instruction_bits);
     switch(instruction.opcode) {
         case 0x33:
@@ -50,6 +58,7 @@ void decode_instruction(uint32_t instruction_bits) {
             break;
     }
 }
+
 
 void write_rtype(Instruction instruction) {
     /* YOUR CODE HERE */
