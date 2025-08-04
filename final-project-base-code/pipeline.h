@@ -30,6 +30,11 @@ typedef struct
   /**
    * Add other fields here
    */
+  Register    program_counter;
+  regfile_t   read_reg_1;
+  regfile_t   read_reg_2;
+  
+  
 }ifid_reg_t;
 
 typedef struct
@@ -39,6 +44,9 @@ typedef struct
   /**
    * Add other fields here
    */
+  uint32_t    program_counter;
+  uint32_t    alu;
+  
 }idex_reg_t;
 
 typedef struct
