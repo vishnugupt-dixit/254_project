@@ -4,6 +4,7 @@
 #include "config.h"
 #include "types.h"
 #include "cache.h"
+#include "riscv.h"
 #include <stdbool.h>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -30,11 +31,11 @@ typedef struct
   /**
    * Add other fields here
    */
-  Register    program_counter;
+  uint32_t    program_counter;
   regfile_t   read_reg_1;
   regfile_t   read_reg_2;
-  
-  
+  int imm;
+    
 }ifid_reg_t;
 
 typedef struct
@@ -44,9 +45,10 @@ typedef struct
   /**
    * Add other fields here
    */
+  unsigned int   read_data_1;
+  unsigned int   read_data_2;
   uint32_t    program_counter;
-  uint32_t    alu;
-  
+  int imm;
 }idex_reg_t;
 
 typedef struct
@@ -56,6 +58,9 @@ typedef struct
   /**
    * Add other fields here
    */
+  uint32_t    program_counter;
+  unsigned int  addr;
+  unsigned int write_data;
 }exmem_reg_t;
 
 typedef struct
@@ -65,6 +70,9 @@ typedef struct
   /**
    * Add other fields here
    */
+  uint32_t    program_counter;
+  unsigned int read_data;
+  unsigned int write_reg;
 }memwb_reg_t;
 
 
