@@ -70,6 +70,27 @@ idex_reg_t stage_decode(ifid_reg_t ifid_reg, pipeline_wires_t* pwires_p, regfile
   /**
    * YOUR CODE HERE
    */
+
+  Instruction instr = ifid_reg.instr;
+
+  idex_reg.instr = instr;
+  idex_reg.instr_addr = ifid_reg.instr_addr;
+
+  idex_reg.read_data_1 = regfile_p->R[instr.rtype.rs1];
+  idex_reg.read_data_2 = regfile_p->R[instr.rtype.rs2];
+
+  idex_reg.imm = gen_imm(instr);
+
+  idex_reg.program_counter = regfile_p->PC;
+
+  idex_reg_t ctrl = gen_control(instr);
+  idex_reg.alu_op = ctrl.alu_op;
+  idex_reg.alu_src = ctrl.alu_src;
+  idex_reg.reg_write = ctrl.reg_write;
+  idex_reg.mem_read = ctrl.mem_read;
+  idex_reg.mem_write = ctrl.mem_write;
+  idex_reg.mem_to_reg = ctrl.mem_to_reg;
+
   return idex_reg;
 }
 

@@ -49,6 +49,15 @@ typedef struct
   unsigned int   read_data_2;
   uint32_t    program_counter;
   int imm;
+
+  uint32_t alu_op;
+  uint8_t  alu_src;
+  uint8_t  reg_write;
+  uint8_t  mem_read;
+  uint8_t  mem_write;
+  uint8_t  mem_to_reg;
+  uint8_t  branch;  
+
 }idex_reg_t;
 
 typedef struct
