@@ -18,6 +18,7 @@ extern uint64_t stall_counter;
 extern uint64_t branch_counter;
 extern uint64_t fwd_exex_counter;
 extern uint64_t fwd_exmem_counter;
+extern uint64_t mem_access_counter;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// RISC-V Pipeline Register Types
