@@ -135,6 +135,9 @@ void stage_writeback(memwb_reg_t memwb_reg, pipeline_wires_t* pwires_p, regfile_
   /**
    * YOUR CODE HERE
    */
+  if(memwb_reg.reg_write && memwb_reg.rd != 0) {
+    uint32_t result; 
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
