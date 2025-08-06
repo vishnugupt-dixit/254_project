@@ -52,6 +52,14 @@ typedef struct
   unsigned int opcode;
   unsigned int funct3;
   unsigned int funct7;
+
+uint32_t alu_op;
+uint8_t  alu_src;
+uint8_t  reg_write;
+uint8_t  mem_read;
+uint8_t  mem_write;
+uint8_t  mem_to_reg;
+uint8_t  branch; 
 }idex_reg_t;
 
 typedef struct
