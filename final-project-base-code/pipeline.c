@@ -316,6 +316,9 @@ void cycle_pipeline(regfile_t* regfile_p, Byte* memory_p, Cache* cache_p, pipeli
 
   // process each stage
 
+  gen_forward(pregs_p, pwires_p);
+  detect_hazard(pregs_p, pwires_p, regfile_p);
+
   /* Output               |    Stage      |       Inputs  */
   pregs_p->ifid_preg.inp  = stage_fetch     (pwires_p, regfile_p, memory_p);
   
@@ -326,6 +329,15 @@ void cycle_pipeline(regfile_t* regfile_p, Byte* memory_p, Cache* cache_p, pipeli
   pregs_p->memwb_preg.inp = stage_mem       (pregs_p->exmem_preg.out, pwires_p, memory_p, cache_p);
 
                             stage_writeback (pregs_p->memwb_preg.out, pwires_p, regfile_p);
+
+  //control hazards
+if (pwires_p->pcsrc == 1) {
+    pregs_p->ifid_preg.out = (ifid_reg_t){0};
+    pregs_p->idex_preg.out = (idex_reg_t){0};
+    pregs_p->idex_preg.out.instr.bits = 0x00000013;  // NOP
+    branch_counter++;
+}
+
 
   // update all the output registers for the next cycle from the input registers in the current cycle
 // Update IF/ID output (stalling prevents PC and IF/ID register updates)

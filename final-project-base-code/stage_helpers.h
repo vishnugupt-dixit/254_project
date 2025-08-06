@@ -266,7 +266,7 @@ void gen_forward(pipeline_regs_t* pregs_p, pipeline_wires_t* pwires_p)
         pwires_p->fwdB = FWD_MEMWB;
         fwd_exmem_counter++;
     }
-}
+}   
 
 
 void detect_hazard(pipeline_regs_t* pregs_p, pipeline_wires_t* pwires_p, regfile_t* regfile_p)
@@ -281,7 +281,7 @@ void detect_hazard(pipeline_regs_t* pregs_p, pipeline_wires_t* pwires_p, regfile
         ((ex_rd == id_rs1) || (ex_rd == id_rs2)) && ex_rd != 0)
     {
         pwires_p->stall = true;
-        stall_counter++;
+        stall_counter++;    
     }
 }
 
