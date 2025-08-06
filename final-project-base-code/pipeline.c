@@ -83,6 +83,12 @@ exmem_reg_t stage_execute(idex_reg_t idex_reg, pipeline_wires_t* pwires_p)
   /**
    * YOUR CODE HERE
    */
+
+  if (idex_reg->ALUSrC){
+    
+  }
+
+
   return exmem_reg;
 }
 

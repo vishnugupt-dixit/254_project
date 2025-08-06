@@ -17,6 +17,9 @@ uint32_t gen_alu_control(idex_reg_t idex_reg)
   /**
    * YOUR CODE HERE
    */
+
+  switch (idex_reg.opcode)
+
   return alu_control;
 }
 
