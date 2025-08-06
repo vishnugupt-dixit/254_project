@@ -124,6 +124,22 @@ typedef struct
   /**
    * Add other fields here
    */
+
+  //alu control 
+  uint32_t alu_op;
+  uint8_t alu_src;
+  uint8_t branch;
+
+  //memory control 
+  uint8_t mem_read;
+  uint8_t mem_write;
+
+
+  //write back control 
+  uint8_t reg_write;
+  uint8_t mem_to_reg;
+
+
 }pipeline_wires_t;
 
 
