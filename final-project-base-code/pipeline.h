@@ -1,5 +1,8 @@
 #ifndef __PIPELINE_H__
 #define __PIPELINE_H__
+#define DEBUG_CYCLE
+#define DEBUG_REG_TRACE
+
 
 #include "config.h"
 #include "types.h"

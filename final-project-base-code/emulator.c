@@ -268,7 +268,7 @@ void execute_itype_except_load(Instruction instruction, Processor *processor) {
 
         case 0x5:
 
-            if (instruction.itype.imm=0x0)
+            if (instruction.itype.imm == 0x0)
             {
                 processor->R[instruction.itype.rd]=
                 (((sWord)processor->R[instruction.itype.rs1])>>
@@ -276,7 +276,7 @@ void execute_itype_except_load(Instruction instruction, Processor *processor) {
                 break;
             }
 
-            else if (instruction.itype.imm=0x2)
+            else if (instruction.itype.imm == 0x2)
             {
                 processor->R[instruction.itype.rd]= sign_extend_number(
                 (((sWord)processor->R[instruction.itype.rs1])>>

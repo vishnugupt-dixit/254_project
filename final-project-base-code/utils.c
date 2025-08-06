@@ -159,6 +159,10 @@ int sign_extend_number(unsigned int field, unsigned int n) {
   }
 }
 
+uint32_t zero_extend_number(uint32_t val, int bits) {
+    uint32_t mask = (1U << bits) - 1;
+    return val & mask;
+}
 
 /* Return the number of bytes (from the current PC) to the branch label using
  * the given branch instruction */

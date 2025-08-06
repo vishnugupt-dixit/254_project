@@ -16,6 +16,7 @@
 
 Instruction parse_instruction(uint32_t);
 int sign_extend_number(unsigned, unsigned);
+uint32_t zero_extend_number(uint32_t val, int bits);
 int get_branch_offset(Instruction);
 int get_jump_offset(Instruction);
 int get_store_offset(Instruction);
