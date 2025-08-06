@@ -28,58 +28,39 @@ typedef struct
 {
   Instruction instr;
   uint32_t    instr_addr;
-  /**
-   * Add other fields here
-   */
   uint32_t    program_counter;
-  regfile_t   read_reg_1;
-  regfile_t   read_reg_2;
-  int imm;
-    
 }ifid_reg_t;
 
 typedef struct
 {
   Instruction instr;
   uint32_t    instr_addr;
-  /**
-   * Add other fields here
-   */
-  unsigned int   read_data_1;
-  unsigned int   read_data_2;
   uint32_t    program_counter;
-  unsigned int imm;
-  unsigned int opcode;
-  unsigned int funct3;
-  unsigned int funct7;
+  uint32_t    read_data_1;
+  uint32_t    read_data_2;
+  uint32_t    imm;
+  uint32_t    opcode;
+  uint32_t    funct3;
+  uint32_t    funct7;
 }idex_reg_t;
 
 typedef struct
 {
   Instruction instr;
   uint32_t    instr_addr;
-  /**
-   * Add other fields here
-   */
   uint32_t    program_counter;
-  unsigned int  addr;
-  unsigned int write_data;
+  uint32_t    addr;
+  uint32_t    write_data;
 }exmem_reg_t;
 
 typedef struct
 {
   Instruction instr;
   uint32_t    instr_addr;
-  /**
-   * Add other fields here
-   */
   uint32_t    program_counter;
-  unsigned int read_data;
-  unsigned int write_reg;
-  unsigned int result_alu;
-  unsigned int read_mem;
+  uint32_t    read_data;
+  uint32_t    result_alu;
 }memwb_reg_t;
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Register types with input and output variants for simulator
@@ -126,27 +107,20 @@ typedef struct
   bool      pcsrc;
   uint32_t  pc_src0;
   uint32_t  pc_src1;
-  /**
-   * Add other fields here
-   */
-
-  //alu control 
-  uint32_t alu_op;
-  uint8_t alu_src;
-  uint8_t branch;
-
-  //memory control 
-  uint8_t mem_read;
-  uint8_t mem_write;
-
-
-  //write back control 
-  uint8_t reg_write;
-  uint8_t mem_to_reg;
-
-
+  
+  // ALU control signals
+  uint32_t  alu_op;
+  uint8_t   alu_src;
+  uint8_t   branch;
+  
+  // Memory control signals
+  uint8_t   mem_read;
+  uint8_t   mem_write;
+  
+  // Write back control signals
+  uint8_t   reg_write;
+  uint8_t   mem_to_reg;
 }pipeline_wires_t;
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Function definitions for different stages
