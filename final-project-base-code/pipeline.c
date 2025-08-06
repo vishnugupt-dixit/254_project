@@ -1,5 +1,3 @@
-// Complete implementation for pipeline.c - Milestone 1
-
 #include <stdbool.h>
 #include "cache.h"
 #include "riscv.h"
@@ -15,7 +13,6 @@ uint64_t stall_counter = 0;
 uint64_t branch_counter = 0;
 uint64_t fwd_exex_counter = 0;
 uint64_t fwd_exmem_counter = 0;
-uint64_t mem_access_counter = 0;
 
 simulator_config_t sim_config = {0};
 
@@ -39,34 +36,27 @@ ifid_reg_t stage_fetch(pipeline_wires_t* pwires_p, regfile_t* regfile_p, Byte* m
 {
   ifid_reg_t ifid_reg = {0};
   
-  uint32_t instruction_bits = 0;
-  
-  // Fetch instruction from memory at PC
-  if (regfile_p->PC < MEMORY_SPACE - 3) {
-    instruction_bits = (memory_p[regfile_p->PC + 3] << 24) |
-                      (memory_p[regfile_p->PC + 2] << 16) |
-                      (memory_p[regfile_p->PC + 1] << 8) |
-                      (memory_p[regfile_p->PC]);
+  // Handle PC source selection (branching)
+  if (pwires_p->pcsrc == 1){
+    regfile_p->PC = pwires_p->pc_src1;
+    pwires_p->pcsrc = 0;
+  }
+  else{
+    regfile_p->PC = pwires_p->pc_src0;
   }
 
-  // Handle NOP for uninitialized pipeline
-  if (instruction_bits == 0) {
-    instruction_bits = 0x00000013; // NOP (addi x0, x0, 0)
-  }
-
-  // Parse instruction
+  // Fetch instruction from memory
+  uint32_t instruction_bits = *(uint32_t*)(memory_p + regfile_p->PC);
   ifid_reg.instr = parse_instruction(instruction_bits);
-  ifid_reg.instr_addr = regfile_p->PC;
-  ifid_reg.program_counter = regfile_p->PC;
 
   #ifdef DEBUG_CYCLE
   printf("[IF ]: Instruction [%08x]@[%08x]: ", instruction_bits, regfile_p->PC);
   decode_instruction(instruction_bits);
   #endif
-
-  // Update PC (basic increment for Milestone 1 - no branches yet)
-  regfile_p->PC += 4;
-
+  
+  ifid_reg.instr_addr = regfile_p->PC;
+  pwires_p->pc_src0 = regfile_p->PC + 4;  // Next sequential PC
+  
   return ifid_reg;
 }
 
@@ -78,69 +68,26 @@ idex_reg_t stage_decode(ifid_reg_t ifid_reg, pipeline_wires_t* pwires_p, regfile
 {
   idex_reg_t idex_reg = {0};
   
-  // Copy instruction info
-  idex_reg.instr = ifid_reg.instr;
-  idex_reg.instr_addr = ifid_reg.instr_addr;
-  idex_reg.program_counter = ifid_reg.program_counter;
-  idex_reg.opcode = ifid_reg.instr.opcode;
-  
-  // Generate immediate based on instruction type
-  idex_reg.imm = gen_imm(ifid_reg.instr);
+  // Generate control signals
+  idex_reg = gen_control(ifid_reg.instr);
   
   // Read register file
-  switch (ifid_reg.instr.opcode) {
-    case 0x33: // R-type
-      idex_reg.read_data_1 = regfile_p->R[ifid_reg.instr.rtype.rs1];
-      idex_reg.read_data_2 = regfile_p->R[ifid_reg.instr.rtype.rs2];
-      idex_reg.funct3 = ifid_reg.instr.rtype.funct3;
-      idex_reg.funct7 = ifid_reg.instr.rtype.funct7;
-      break;
-      
-    case 0x13: // I-type (immediate operations)
-      idex_reg.read_data_1 = regfile_p->R[ifid_reg.instr.itype.rs1];
-      idex_reg.read_data_2 = 0; // Not used
-      idex_reg.funct3 = ifid_reg.instr.itype.funct3;
-      break;
-      
-    case 0x03: // Load instructions
-      idex_reg.read_data_1 = regfile_p->R[ifid_reg.instr.itype.rs1];
-      idex_reg.read_data_2 = 0;
-      idex_reg.funct3 = ifid_reg.instr.itype.funct3;
-      break;
-      
-    case 0x23: // Store instructions  
-      idex_reg.read_data_1 = regfile_p->R[ifid_reg.instr.stype.rs1];
-      idex_reg.read_data_2 = regfile_p->R[ifid_reg.instr.stype.rs2];
-      idex_reg.funct3 = ifid_reg.instr.stype.funct3;
-      break;
-      
-    case 0x63: // Branch instructions
-      idex_reg.read_data_1 = regfile_p->R[ifid_reg.instr.sbtype.rs1];
-      idex_reg.read_data_2 = regfile_p->R[ifid_reg.instr.sbtype.rs2];
-      idex_reg.funct3 = ifid_reg.instr.sbtype.funct3;
-      break;
-      
-    case 0x37: // LUI
-      idex_reg.read_data_1 = 0;
-      idex_reg.read_data_2 = 0;
-      break;
-      
-    case 0x6F: // JAL
-      idex_reg.read_data_1 = 0;
-      idex_reg.read_data_2 = 0;
-      break;
-      
-    default:
-      idex_reg.read_data_1 = 0;
-      idex_reg.read_data_2 = 0;
-      break;
-  }
-
+  idex_reg.Read_Data_1 = regfile_p->R[ifid_reg.instr.rtype.rs1];
+  idex_reg.Read_Data_2 = regfile_p->R[ifid_reg.instr.rtype.rs2];
+  
+  // Generate immediate
+  idex_reg.imm_gen_out = gen_imm(ifid_reg.instr);
+  
+  // Pass through instruction address
+  idex_reg.instr_addr = ifid_reg.instr_addr;
+  
+  uint32_t instruction_bits = idex_reg.instr.bits;
+  
   #ifdef DEBUG_CYCLE
-  printf("[ID ]: Instruction [%08x]@[%08x]: ", ifid_reg.instr.bits, ifid_reg.instr_addr);
-  decode_instruction(ifid_reg.instr.bits);
+  printf("[ID ]: Instruction [%08x]@[%08x]: ", instruction_bits, idex_reg.instr_addr);
+  decode_instruction(instruction_bits);
   #endif
-
+  
   return idex_reg;
 }
 
@@ -152,51 +99,50 @@ exmem_reg_t stage_execute(idex_reg_t idex_reg, pipeline_wires_t* pwires_p)
 {
   exmem_reg_t exmem_reg = {0};
   
-  // Copy instruction info
-  exmem_reg.instr = idex_reg.instr;
+  // Pass through instruction and address
   exmem_reg.instr_addr = idex_reg.instr_addr;
-  exmem_reg.program_counter = idex_reg.program_counter;
+  exmem_reg.instr = idex_reg.instr;
   
-  uint32_t alu_control = gen_alu_control(idex_reg);
-  uint32_t alu_inp1 = idex_reg.read_data_1;
-  uint32_t alu_inp2;
+  // Calculate branch target address
+  exmem_reg.add_sum_output = idex_reg.imm_gen_out + idex_reg.instr_addr;
   
-  // Select ALU input 2 based on instruction type
-  switch (idex_reg.opcode) {
-    case 0x33: // R-type - use register
-      alu_inp2 = idex_reg.read_data_2;
-      break;
-    case 0x13: // I-type - use immediate
-    case 0x03: // Load - use immediate
-    case 0x23: // Store - use immediate
-      alu_inp2 = idex_reg.imm;
-      break;
-    case 0x37: // LUI - special case
-      alu_inp1 = 0;
-      alu_inp2 = idex_reg.imm << 12;
-      break;
-    case 0x6F: // JAL - calculate return address
-      alu_inp1 = idex_reg.program_counter;
-      alu_inp2 = 4;
-      break;
-    default:
-      alu_inp2 = idex_reg.imm;
-      break;
+  // Generate ALU control
+  uint32_t ALUcontrol = gen_alu_control(idex_reg);
+  
+  // ALU source mux
+  uint32_t muxout;
+  if (idex_reg.EX_ALUSrc == 0){
+    muxout = idex_reg.Read_Data_2;
+  }
+  else{
+    muxout = idex_reg.imm_gen_out;
   }
   
   // Execute ALU operation
-  exmem_reg.addr = execute_alu(alu_inp1, alu_inp2, alu_control);
+  exmem_reg.ALU_result = execute_alu(idex_reg.Read_Data_1, muxout, ALUcontrol);
   
-  // For store instructions, write_data is rs2
-  if (idex_reg.opcode == 0x23) {
-    exmem_reg.write_data = idex_reg.read_data_2;
-  }
-
+  // Pass through Read_Data_2 for store operations
+  exmem_reg.Read_Data_2 = idex_reg.Read_Data_2;
+  
+  // Pass through control signals
+  exmem_reg.M_Branch = idex_reg.M_Branch;
+  exmem_reg.M_JAL = idex_reg.M_JAL;
+  exmem_reg.WB_WBSRC = idex_reg.WB_WBSRC;
+  exmem_reg.M_MemRead = idex_reg.M_MemRead;
+  exmem_reg.M_MemWrite = idex_reg.M_MemWrite;
+  exmem_reg.WB_RegWrite = idex_reg.WB_RegWrite;
+  exmem_reg.WB_MemToReg = idex_reg.WB_MemToReg;
+  
+  // Set Zero flag
+  exmem_reg.Zero = !exmem_reg.ALU_result;
+  
+  uint32_t instruction_bits = exmem_reg.instr.bits;
+  
   #ifdef DEBUG_CYCLE
-  printf("[EX ]: Instruction [%08x]@[%08x]: ", idex_reg.instr.bits, idex_reg.instr_addr);
-  decode_instruction(idex_reg.instr.bits);
+  printf("[EX ]: Instruction [%08x]@[%08x]: ", instruction_bits, exmem_reg.instr_addr);
+  decode_instruction(instruction_bits);
   #endif
-
+  
   return exmem_reg;
 }
 
@@ -208,53 +154,71 @@ memwb_reg_t stage_mem(exmem_reg_t exmem_reg, pipeline_wires_t* pwires_p, Byte* m
 {
   memwb_reg_t memwb_reg = {0};
   
-  // Copy instruction info
+  // Pass through instruction and address
   memwb_reg.instr = exmem_reg.instr;
   memwb_reg.instr_addr = exmem_reg.instr_addr;
-  memwb_reg.program_counter = exmem_reg.program_counter;
-  memwb_reg.result_alu = exmem_reg.addr;
+  memwb_reg.ALU_result = exmem_reg.ALU_result;
   
-  // Handle memory operations
-  switch (exmem_reg.instr.opcode) {
-    case 0x03: // Load instructions
+  // Handle memory read operations
+  if (exmem_reg.M_MemRead) {
+    if (sim_config.cache_en) {
+      // Cache handling would go here for milestone 2
+    } else {
       switch (exmem_reg.instr.itype.funct3) {
-        case 0x0: // lb
-          memwb_reg.read_data = sign_extend_number(load(memory_p, exmem_reg.addr, LENGTH_BYTE), 8);
+        case 0x0: // Load Byte
+          memwb_reg.Read_Data = sign_extend_number(load(memory_p, exmem_reg.ALU_result, LENGTH_BYTE), 8);
           break;
-        case 0x1: // lh  
-          memwb_reg.read_data = sign_extend_number(load(memory_p, exmem_reg.addr, LENGTH_HALF_WORD), 16);
+        case 0x1: // Load Halfword
+          memwb_reg.Read_Data = sign_extend_number(load(memory_p, exmem_reg.ALU_result, LENGTH_HALF_WORD), 16);
           break;
-        case 0x2: // lw
-          memwb_reg.read_data = load(memory_p, exmem_reg.addr, LENGTH_WORD);
+        case 0x2: // Load Word
+          memwb_reg.Read_Data = load(memory_p, exmem_reg.ALU_result, LENGTH_WORD);
           break;
-      }
-      break;
-      
-    case 0x23: // Store instructions
-      switch (exmem_reg.instr.stype.funct3) {
-        case 0x0: // sb
-          store(memory_p, exmem_reg.addr, LENGTH_BYTE, exmem_reg.write_data);
-          break;
-        case 0x1: // sh
-          store(memory_p, exmem_reg.addr, LENGTH_HALF_WORD, exmem_reg.write_data);
-          break;
-        case 0x2: // sw
-          store(memory_p, exmem_reg.addr, LENGTH_WORD, exmem_reg.write_data);
+        default:
+          printf("Invalid load instruction\n");
           break;
       }
-      break;
-      
-    default:
-      // No memory operation
-      memwb_reg.read_data = 0;
-      break;
+    }
   }
-
+  
+  // Handle memory write operations
+  if (exmem_reg.M_MemWrite) {
+    if (sim_config.cache_en) {
+      // Cache handling would go here for milestone 2
+    } else {
+      switch (exmem_reg.instr.stype.funct3) {
+        case 0x0: // Store Byte
+          store(memory_p, exmem_reg.ALU_result, LENGTH_BYTE, exmem_reg.Read_Data_2);
+          break;
+        case 0x1: // Store Halfword
+          store(memory_p, exmem_reg.ALU_result, LENGTH_HALF_WORD, exmem_reg.Read_Data_2);
+          break;
+        case 0x2: // Store Word
+          store(memory_p, exmem_reg.ALU_result, LENGTH_WORD, exmem_reg.Read_Data_2);
+          break;
+        default:
+          printf("Invalid store instruction\n");
+          break;
+      }
+    }
+  }
+  
+  // Handle PC source selection for branches and jumps
+  pwires_p->pcsrc = (exmem_reg.Zero & exmem_reg.M_Branch) | exmem_reg.M_JAL;
+  pwires_p->pc_src1 = exmem_reg.add_sum_output;
+  
+  // Pass through control signals
+  memwb_reg.WB_RegWrite = exmem_reg.WB_RegWrite;
+  memwb_reg.WB_MemToReg = exmem_reg.WB_MemToReg;
+  memwb_reg.WB_WBSRC = exmem_reg.WB_WBSRC;
+  
+  uint32_t instruction_bits = memwb_reg.instr.bits;
+  
   #ifdef DEBUG_CYCLE
-  printf("[MEM]: Instruction [%08x]@[%08x]: ", exmem_reg.instr.bits, exmem_reg.instr_addr);
-  decode_instruction(exmem_reg.instr.bits);
+  printf("[MEM]: Instruction [%08x]@[%08x]: ", instruction_bits, memwb_reg.instr_addr);
+  decode_instruction(instruction_bits);
   #endif
-
+  
   return memwb_reg;
 }
 
@@ -264,58 +228,37 @@ memwb_reg_t stage_mem(exmem_reg_t exmem_reg, pipeline_wires_t* pwires_p, Byte* m
  **/ 
 void stage_writeback(memwb_reg_t memwb_reg, pipeline_wires_t* pwires_p, regfile_t* regfile_p)
 {
-  uint32_t write_reg = 0;
-  uint32_t write_data = 0;
-  bool reg_write = false;
-  
-  // Determine what to write back
-  switch (memwb_reg.instr.opcode) {
-    case 0x33: // R-type
-      write_reg = memwb_reg.instr.rtype.rd;
-      write_data = memwb_reg.result_alu;
-      reg_write = (write_reg != 0); // Don't write to x0
-      break;
-      
-    case 0x13: // I-type (immediate operations)
-      write_reg = memwb_reg.instr.itype.rd;
-      write_data = memwb_reg.result_alu;
-      reg_write = (write_reg != 0);
-      break;
-      
-    case 0x03: // Load instructions
-      write_reg = memwb_reg.instr.itype.rd;
-      write_data = memwb_reg.read_data;
-      reg_write = (write_reg != 0);
-      break;
-      
-    case 0x37: // LUI
-      write_reg = memwb_reg.instr.utype.rd;
-      write_data = memwb_reg.result_alu;
-      reg_write = (write_reg != 0);
-      break;
-      
-    case 0x6F: // JAL
-      write_reg = memwb_reg.instr.ujtype.rd;
-      write_data = memwb_reg.result_alu;
-      reg_write = (write_reg != 0);
-      break;
-      
-    case 0x23: // Store instructions
-    case 0x63: // Branch instructions
-    case 0x73: // ECALL
-    default:
-      reg_write = false;
-      break;
+  // Memory to register mux
+  uint32_t muxout;
+  if (memwb_reg.WB_MemToReg == 1){
+    muxout = memwb_reg.Read_Data;
+  }
+  else{
+    muxout = memwb_reg.ALU_result;
   }
   
-  // Write to register file
-  if (reg_write) {
-    regfile_p->R[write_reg] = write_data;
+  // Write back source mux (for JAL/JALR)
+  uint32_t muxout2;
+  if (memwb_reg.WB_WBSRC == 1){
+    muxout2 = memwb_reg.instr_addr + 4;
   }
-
+  else{
+    muxout2 = muxout;
+  }
+  
+  // Write to register file if RegWrite is enabled
+  if (memwb_reg.WB_RegWrite == 1){
+    regfile_p->R[memwb_reg.instr.rtype.rd] = muxout2;
+  }
+  
+  // Ensure x0 is always 0
+  regfile_p->R[0] = 0;
+  
+  uint32_t instruction_bits = memwb_reg.instr.bits;
+  
   #ifdef DEBUG_CYCLE
-  printf("[WB ]: Instruction [%08x]@[%08x]: ", memwb_reg.instr.bits, memwb_reg.instr_addr);
-  decode_instruction(memwb_reg.instr.bits);
+  printf("[WB ]: Instruction [%08x]@[%08x]: ", instruction_bits, memwb_reg.instr_addr);
+  decode_instruction(instruction_bits);
   #endif
 }
 

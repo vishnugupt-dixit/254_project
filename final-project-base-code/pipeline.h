@@ -1,13 +1,9 @@
 #ifndef __PIPELINE_H__
 #define __PIPELINE_H__
-#define DEBUG_CYCLE
-#define DEBUG_REG_TRACE
-
 
 #include "config.h"
 #include "types.h"
 #include "cache.h"
-#include "riscv.h"
 #include <stdbool.h>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -22,7 +18,6 @@ extern uint64_t stall_counter;
 extern uint64_t branch_counter;
 extern uint64_t fwd_exex_counter;
 extern uint64_t fwd_exmem_counter;
-extern uint64_t mem_access_counter;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// RISC-V Pipeline Register Types
@@ -32,39 +27,74 @@ typedef struct
 {
   Instruction instr;
   uint32_t    instr_addr;
-  uint32_t    program_counter;
+  uint32_t    instr_bits;
+  /**
+   * Add other fields here
+   */
 }ifid_reg_t;
 
 typedef struct
 {
   Instruction instr;
   uint32_t    instr_addr;
-  uint32_t    program_counter;
-  uint32_t    read_data_1;
-  uint32_t    read_data_2;
-  uint32_t    imm;
-  uint32_t    opcode;
-  uint32_t    funct3;
-  uint32_t    funct7;
+  uint32_t    imm_gen_out;
+  uint32_t    Read_Data_1;
+  uint32_t    Read_Data_2;
+
+  // CONTROL SIGNALS
+  bool    EX_ALUSrc;
+  bool    EX_ALUOp;
+  bool    M_Branch;
+  bool    M_JAL;
+  bool    M_MemRead;
+  bool    M_MemWrite;
+  bool    WB_RegWrite;
+  bool    WB_MemToReg;
+  bool    WB_WBSRC;
+  /**
+   * Add other fields here
+   */
 }idex_reg_t;
 
 typedef struct
 {
   Instruction instr;
-  uint32_t    instr_addr;
-  uint32_t    program_counter;
-  uint32_t    addr;
-  uint32_t    write_data;
+  uint32_t    instr_addr; 
+  uint32_t    add_sum_output;
+  uint32_t    ALU_result;
+  uint32_t    Read_Data_2;
+
+  // CONTROL SIGNALS
+  bool    Zero;
+  bool    M_Branch;
+  bool    M_JAL;
+  bool    M_MemRead;
+  bool    M_MemWrite;
+  bool    WB_RegWrite;
+  bool    WB_MemToReg;
+  bool    WB_WBSRC;
+  
+  /**
+   * Add other fields here
+   */
 }exmem_reg_t;
 
 typedef struct
 {
   Instruction instr;
   uint32_t    instr_addr;
-  uint32_t    program_counter;
-  uint32_t    read_data;
-  uint32_t    result_alu;
+  uint32_t    ALU_result;
+  uint32_t    Read_Data;
+
+  // CONTROL SIGNALS
+  bool    WB_RegWrite;
+  bool    WB_MemToReg;
+  bool    WB_WBSRC;
+  /**
+   * Add other fields here
+   */
 }memwb_reg_t;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Register types with input and output variants for simulator
@@ -111,20 +141,13 @@ typedef struct
   bool      pcsrc;
   uint32_t  pc_src0;
   uint32_t  pc_src1;
-  
-  // ALU control signals
-  uint32_t  alu_op;
-  uint8_t   alu_src;
-  uint8_t   branch;
-  
-  // Memory control signals
-  uint8_t   mem_read;
-  uint8_t   mem_write;
-  
-  // Write back control signals
-  uint8_t   reg_write;
-  uint8_t   mem_to_reg;
+  uint32_t  ALU_control_output;
+  uint32_t  data_mux_outputs;
+  /**
+   * Add other fields here
+   */
 }pipeline_wires_t;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Function definitions for different stages

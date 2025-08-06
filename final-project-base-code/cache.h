@@ -73,4 +73,6 @@ void hit_cacheline(const unsigned long long address, Cache *cache);
 bool insert_cacheline(const unsigned long long address, Cache *cache);
 unsigned long long victim_cacheline(const unsigned long long address, const Cache *cache);
 void replace_cacheline(const unsigned long long victim_block_addr, const unsigned long long insert_addr, Cache *cache);
+void print_result(result r);
+void printSummary(const Cache *cache);
 #endif // CACHE_H
