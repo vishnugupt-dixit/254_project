@@ -237,46 +237,51 @@ bool gen_branch(exmem_reg_t exmem_reg)
 
 void gen_forward(pipeline_regs_t* pregs_p, pipeline_wires_t* pwires_p)
 {
-    // Forwarding from EX/MEM stage
-    if (pregs_p->exmem_preg.out.WB_RegWrite &&
-        pregs_p->exmem_preg.out.instr.rtype.rd != 0 &&
-        pregs_p->exmem_preg.out.instr.rtype.rd == pregs_p->idex_preg.inp.instr.rtype.rs1)
-    {
-        pwires_p->data_mux_outputs |= 0x1; // Forward to ALU input 1
+    pwires_p->fwdA = FWD_REG;
+    pwires_p->fwdB = FWD_REG;
+
+    uint8_t rs1 = pregs_p->idex_preg.inp.instr.rtype.rs1;
+    uint8_t rs2 = pregs_p->idex_preg.inp.instr.rtype.rs2;
+    uint8_t exmem_rd = pregs_p->exmem_preg.out.instr.rtype.rd;
+    uint8_t memwb_rd = pregs_p->memwb_preg.out.instr.rtype.rd;
+
+    // EX/MEM → ID/EX
+    if (pregs_p->exmem_preg.out.WB_RegWrite && exmem_rd != 0 && exmem_rd == rs1) {
+        pwires_p->fwdA = FWD_EXMEM;
+        fwd_exex_counter++;
     }
-    if (pregs_p->exmem_preg.out.WB_RegWrite &&
-        pregs_p->exmem_preg.out.instr.rtype.rd != 0 &&
-        pregs_p->exmem_preg.out.instr.rtype.rd == pregs_p->idex_preg.inp.instr.rtype.rs2)
-    {
-        pwires_p->data_mux_outputs |= 0x2; // Forward to ALU input 2
+    if (pregs_p->exmem_preg.out.WB_RegWrite && exmem_rd != 0 && exmem_rd == rs2) {
+        pwires_p->fwdB = FWD_EXMEM;
+        fwd_exex_counter++;
     }
-    
-    // Forwarding from MEM/WB stage
-    if (pregs_p->memwb_preg.out.WB_RegWrite &&
-        pregs_p->memwb_preg.out.instr.rtype.rd != 0 &&
-        pregs_p->memwb_preg.out.instr.rtype.rd == pregs_p->idex_preg.inp.instr.rtype.rs1 &&
-        pregs_p->exmem_preg.out.instr.rtype.rd != pregs_p->idex_preg.inp.instr.rtype.rs1)
-    {
-        pwires_p->data_mux_outputs |= 0x4; // Forward to ALU input 1
+
+    // MEM/WB → ID/EX
+    if (pregs_p->memwb_preg.out.WB_RegWrite && memwb_rd != 0 &&
+        memwb_rd == rs1 && exmem_rd != rs1) {
+        pwires_p->fwdA = FWD_MEMWB;
+        fwd_exmem_counter++;
     }
-    if (pregs_p->memwb_preg.out.WB_RegWrite &&
-        pregs_p->memwb_preg.out.instr.rtype.rd != 0 &&
-        pregs_p->memwb_preg.out.instr.rtype.rd == pregs_p->idex_preg.inp.instr.rtype.rs2 &&
-        pregs_p->exmem_preg.out.instr.rtype.rd != pregs_p->idex_preg.inp.instr.rtype.rs2)
-    {
-        pwires_p->data_mux_outputs |= 0x8; // Forward to ALU input 2
+    if (pregs_p->memwb_preg.out.WB_RegWrite && memwb_rd != 0 &&
+        memwb_rd == rs2 && exmem_rd != rs2) {
+        pwires_p->fwdB = FWD_MEMWB;
+        fwd_exmem_counter++;
     }
 }
 
+
 void detect_hazard(pipeline_regs_t* pregs_p, pipeline_wires_t* pwires_p, regfile_t* regfile_p)
 {
-    // Load-use hazard detection
-    if (pregs_p->idex_preg.inp.M_MemRead &&
-        ((pregs_p->idex_preg.inp.instr.rtype.rd == pregs_p->ifid_preg.inp.instr.rtype.rs1) ||
-         (pregs_p->idex_preg.inp.instr.rtype.rd == pregs_p->ifid_preg.inp.instr.rtype.rs2)))
+    pwires_p->stall = false;
+
+    uint8_t id_rs1 = pregs_p->ifid_preg.out.instr.rtype.rs1;
+    uint8_t id_rs2 = pregs_p->ifid_preg.out.instr.rtype.rs2;
+    uint8_t ex_rd  = pregs_p->idex_preg.out.instr.rtype.rd;
+
+    if (pregs_p->idex_preg.out.M_MemRead &&
+        ((ex_rd == id_rs1) || (ex_rd == id_rs2)) && ex_rd != 0)
     {
-        pwires_p->pcsrc = false; // Stall PC
-        pwires_p->data_mux_outputs |= 0x10; // Insert bubble
+        pwires_p->stall = true;
+        stall_counter++;
     }
 }
 

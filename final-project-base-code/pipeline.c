@@ -23,6 +23,12 @@ void bootstrap(pipeline_wires_t* pwires_p, pipeline_regs_t* pregs_p, regfile_t* 
 {
   // PC src must get the same value as the default PC value
   pwires_p->pc_src0 = regfile_p->PC;
+  pwires_p->pcsrc   = false;
+
+  pwires_p->fwdA    = FWD_REG;
+  pwires_p->fwdB    = FWD_REG;
+  pwires_p->stall   = false;
+  pwires_p->flush   = false;
 }
 
 ///////////////////////////
@@ -36,6 +42,11 @@ void bootstrap(pipeline_wires_t* pwires_p, pipeline_regs_t* pregs_p, regfile_t* 
 ifid_reg_t stage_fetch(pipeline_wires_t* pwires_p, regfile_t* regfile_p, Byte* memory_p)
 {
   ifid_reg_t ifid_reg = {0};
+
+  if (pwires_p->stall) {
+  return (ifid_reg_t){0}; // Output nothing (NOP)
+}
+
   
   // Handle PC source selection (branching)
   if (pwires_p->pcsrc == 1){
@@ -96,31 +107,58 @@ idex_reg_t stage_decode(ifid_reg_t ifid_reg, pipeline_wires_t* pwires_p, regfile
  * STAGE  : stage_execute
  * output : exmem_reg_t
  **/ 
-exmem_reg_t stage_execute(idex_reg_t idex_reg, pipeline_wires_t* pwires_p)
+exmem_reg_t stage_execute(idex_reg_t idex_reg, pipeline_wires_t* pwires_p, pipeline_regs_t* pregs_p)
 {
   exmem_reg_t exmem_reg = {0};
   
-  // Pass through instruction and address
+ 
   exmem_reg.instr_addr = idex_reg.instr_addr;
   exmem_reg.instr = idex_reg.instr;
   
-  // Calculate branch target address
+
   exmem_reg.add_sum_output = idex_reg.imm_gen_out + idex_reg.instr_addr;
   
-  // Generate ALU control
+
   uint32_t ALUcontrol = gen_alu_control(idex_reg);
   
-  // ALU source mux
-  uint32_t muxout;
-  if (idex_reg.EX_ALUSrc == 0){
-    muxout = idex_reg.Read_Data_2;
+
+  uint32_t alu_src1 = 0;
+  uint32_t alu_src2 = 0;
+
+  switch (pwires_p->fwdA) {
+    case FWD_EXMEM:
+      alu_src1 = pregs_p->exmem_preg.out.ALU_result;
+      break;
+    case FWD_MEMWB:
+      alu_src1 = (pregs_p->memwb_preg.out.WB_MemToReg)
+               ? pregs_p->memwb_preg.out.Read_Data
+               : pregs_p->memwb_preg.out.ALU_result;
+      break;
+    default:
+      alu_src1 = idex_reg.Read_Data_1;
+      break;
   }
-  else{
-    muxout = idex_reg.imm_gen_out;
-  }
-  
-  // Execute ALU operation
-  exmem_reg.ALU_result = execute_alu(idex_reg.Read_Data_1, muxout, ALUcontrol);
+
+  switch (pwires_p->fwdB) {
+    case FWD_EXMEM:
+      alu_src2 = pregs_p->exmem_preg.out.ALU_result;
+      break;
+    case FWD_MEMWB:
+     alu_src2 = (pregs_p->memwb_preg.out.WB_MemToReg)
+               ? pregs_p->memwb_preg.out.Read_Data
+                : pregs_p->memwb_preg.out.ALU_result;
+    break;
+    default:
+    alu_src2 = idex_reg.Read_Data_2;
+    break;
+}
+
+
+uint32_t alu_operand2 = (idex_reg.EX_ALUSrc == 1) ? idex_reg.imm_gen_out : alu_src2;
+
+
+exmem_reg.ALU_result = execute_alu(alu_src1, alu_operand2, ALUcontrol);
+
   
   // Pass through Read_Data_2 for store operations
   exmem_reg.Read_Data_2 = idex_reg.Read_Data_2;
@@ -283,17 +321,34 @@ void cycle_pipeline(regfile_t* regfile_p, Byte* memory_p, Cache* cache_p, pipeli
   
   pregs_p->idex_preg.inp  = stage_decode    (pregs_p->ifid_preg.out, pwires_p, regfile_p);
 
-  pregs_p->exmem_preg.inp = stage_execute   (pregs_p->idex_preg.out, pwires_p);
+  pregs_p->exmem_preg.inp = stage_execute   (pregs_p->idex_preg.out, pwires_p, pregs_p);
 
   pregs_p->memwb_preg.inp = stage_mem       (pregs_p->exmem_preg.out, pwires_p, memory_p, cache_p);
 
                             stage_writeback (pregs_p->memwb_preg.out, pwires_p, regfile_p);
 
   // update all the output registers for the next cycle from the input registers in the current cycle
-  pregs_p->ifid_preg.out  = pregs_p->ifid_preg.inp;
-  pregs_p->idex_preg.out  = pregs_p->idex_preg.inp;
-  pregs_p->exmem_preg.out = pregs_p->exmem_preg.inp;
-  pregs_p->memwb_preg.out = pregs_p->memwb_preg.inp;
+// Update IF/ID output (stalling prevents PC and IF/ID register updates)
+if (!pwires_p->stall) {
+    pregs_p->ifid_preg.out = pregs_p->ifid_preg.inp;
+} else {
+    // re-freeze IF/ID output — keep old instruction for one more cycle
+    pregs_p->ifid_preg.out = pregs_p->ifid_preg.out;
+}
+
+// Update ID/EX
+if (pwires_p->stall) {
+    // insert bubble
+    pregs_p->idex_preg.out = (idex_reg_t){0};
+    pregs_p->idex_preg.out.instr.bits = 0x00000013;  // addi x0, x0, 0 (NOP)
+} else {
+    pregs_p->idex_preg.out = pregs_p->idex_preg.inp;
+}
+
+// EX/MEM and MEM/WB always advance
+pregs_p->exmem_preg.out = pregs_p->exmem_preg.inp;
+pregs_p->memwb_preg.out = pregs_p->memwb_preg.inp;
+
 
   /////////////////// NO CHANGES BELOW THIS ARE REQUIRED //////////////////////
 

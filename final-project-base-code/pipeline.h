@@ -6,6 +6,11 @@
 #include "cache.h"
 #include <stdbool.h>
 
+// forwarding control codes 
+#define FWD_REG   0
+#define FWD_EXMEM 1
+#define FWD_MEMWB 2
+
 ///////////////////////////////////////////////////////////////////////////////
 /// Functionality
 ///////////////////////////////////////////////////////////////////////////////
@@ -142,8 +147,15 @@ typedef struct
   bool      pcsrc;
   uint32_t  pc_src0;
   uint32_t  pc_src1;
+
   uint32_t  ALU_control_output;
   uint32_t  data_mux_outputs;
+
+  uint8_t fwdA;
+  uint8_t fwdB;
+
+  bool stall;
+  bool flush;
   /**
    * Add other fields here
    */
@@ -167,7 +179,7 @@ idex_reg_t stage_decode(ifid_reg_t ifid_reg, pipeline_wires_t* pwires_p, regfile
 /**
  * output : exmem_reg_t
  **/ 
-exmem_reg_t stage_execute(idex_reg_t idex_reg, pipeline_wires_t* pwires_p);
+exmem_reg_t stage_execute(idex_reg_t idex_reg, pipeline_wires_t* pwires_p, pipeline_regs_t* pregs_p);
 
 /**
  * output : memwb_reg_t
