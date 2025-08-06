@@ -15,6 +15,7 @@ uint64_t fwd_exex_counter = 0;
 uint64_t fwd_exmem_counter = 0;
 
 simulator_config_t sim_config = {0};
+int instruction_bits;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -38,6 +39,18 @@ ifid_reg_t stage_fetch(pipeline_wires_t* pwires_p, regfile_t* regfile_p, Byte* m
   /**
    * YOUR CODE HERE
    */
+
+  if (regfile_p ->PC < MEMORY_SPACE-3){
+    instruction_bits = (memory_p[regfile_p->PC+3]<<24)|(memory_p[regfile_p->PC+2]<<16)|(memory_p[regfile_p->PC+1]<<8)|(memory_p[regfile_p->PC]);
+  }
+
+  if (instruction_bits == 0){
+    instruction_bits = 0x00000013;
+  }
+
+  regfile_p.instr = parse_instruction(instruction_bits);
+  regfile_p.instr_addr = regfile_p->PC;
+
 
   #ifdef DEBUG_CYCLE
   printf("[IF ]: Instruction [%08x]@[%08x]: ", instruction_bits, regfile_p->PC);
